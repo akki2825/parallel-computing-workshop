@@ -1,0 +1,96 @@
+:PROPERTIES:
+:ID:       fd8edbce-786a-4e06-b332-8d4fcfd917b4
+:END:
+#+title: parallel-computing-workshop
+#+filetags:
+
+* OpenMP day 1
+
+** Introduction
+- Parallel granularity
+- Identify independent operations in your application
+- Keep the serial part as short as possible
+- time on your watch - wall clock time
+- total CPU time tends to be higher, compared to the sequential version of the application. The (parallel) overhead and the goal is to keep the overhead to a min.
+
+*** Amdahl's law
+***** - Suppose your application needs 100 seconds to run
+***** - If 80% of this run time can execute in paraell, the time using 4 threads is 80/4+20 = 40 seconds
+***** - a fraction "f" of the run time
+
+T(1) = f*T(1) + (1-f)*T(1)
+
+On P threads: T(P) = f*T(1)/P + (1-f)*T(1)
+
+https://en.wikipedia.org/wiki/Amdahl's_law
+
+can be rewritten as: f = (1-T(P)/T(1))/(1-1/P)
+
+
+- paralleize significant fraction of the run time, in order to see a decent speed up for higher thread counts
+- check compiler settings!
+
+*** Load balancing
+
+*** Numerical results
+- Due to roundoff effects, the order of the float
+  ing-point computations may affect the results
+
+*** Parallel architectures
+
+- Cache coherence - ensures that the system konows where data is, and what the coherency state.
+- Shared memory system - one memory and cache coherent bus
+- Distributed memory - standard netwoek -> multiple memory, cache, CPU. Called a cluster
+- Cache coherent network -> multiple memory, cache, CPU. called a NUMA
+- The unit of transfer is a cache line
+- OpenMP is easy to use in shared memory.
+
+*** GPU
+
+*** ARM
+- ARM sells a processor or device design, not a product
+- Big cores and little cores -> L3 cache. Cache coherent Interconnect. Like a HPC system.
+- Efficiency cores and performance cores.
+
+*** Parallel programming systems
+- A distributed memory sustem is typically programmed using network socks or (in HPC) mostly MPI
+- A shared memory system with openMP.
+
+*** Common mistakes
+- illegal parallelization
+- incorrect scoping
+- synchronization errors
+- data races
+- ....
+
+** OpenMP
+ - Fork-join -> allows for an incremental parallelization.
+ - use -fast for optimized icpc. icpc -fast -qopenmp hello_world.cpp
+ - use the wall time to measure time
+ - loop scheduling with for-construct
+ - schedule(static, chunk) -> chunk is important! 2,4,8 is better.
+ - Static is the default
+ - Dynamic schedule -> workload distrubtion
+ - A critical region is executed by all threads, but by only one thread simultaneously. use \#pragma omp critical
+ - default variable is always a shared variable.
+ - if a variable is declared before pragma parallel -> shared. inside the pragma parallel -> private
+ - avoid the use of threadprivate and static variables ->  \#pragma omp threadprivate(i)
+ - \#pragma omp critical -> to make it serializable
+ - \#pragma omp parallel for reduction(+:s)
+
+*** Tasking
+ #+BEGIN_SRC
+    #pragma omp parallel
+    #pragma omp single
+    #pragma omp task
+    #pragma omp taskwait
+ #+END_SRC
+- One task pool per thread
+- private -> uninitialized, undefined. firstprivate -> value of the original variable is copied to the private variable.
+
+*** Cutoff
+- Just have the threads busy.
+- If you dont know anything, then the rule of thumb: have ten times more tasks than threads.
+
+*** Resources
+- https://vampir.eu/
