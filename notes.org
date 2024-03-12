@@ -94,3 +94,135 @@ can be rewritten as: f = (1-T(P)/T(1))/(1-1/P)
 
 *** Resources
 - https://vampir.eu/
+
+* OpenMP day 2
+
+*** Tips and tricks
+
+- OpenMP 2.5 and intro parallel computing -> good beginner book
+- Programming your GPU with OpenMP book
+
+**** Preferred tuning strategy
+
+- In terms of complexity, use the most efficient algorithm
+- Select a profiling tool
+- Find the highest level of parallelism
+- Use OpenMP in an efficient way
+- Be prepared to have to do some performance experiments
+
+**** Basics
+- Do not parallelize whar does not matter. Only focus on what takes time!
+- Do not share data unless you have to (use private data as much as you can), especially when modifying the data
+- Use profiler
+- Maximize the size of the parallel regions
+- One "parallel for" is fine. More, back to back, is bad!
+
+**** The wrong and right way of doing things
+
+ #+BEGIN_SRC
+    #pragma omp parallel for
+    {<code block 1>}
+    ....
+    #pragma omp parallel for
+    {<code block n>}
+ #+END_SRC
+
+    - Parallel regiom overhead repeated "n" times. No potential for the "nowait" clause
+
+The better alternative:
+ #+BEGIN_SRC
+    #pragma omp parallel
+    {
+        #pragma omp for
+        {<code block 1>}
+        ....
+        #pragma omp for nowait
+        {<code block n>}
+    }
+ #+END_SRC
+    - Parallel region overhead only once. Potential for the "nowait" clause
+    - Single "for" gives it to whatever thread is available. Very useful!
+
+- Every barrier matters
+- The same is true for locks and critical regions
+- Identify opportunites to use the nowait clause - Use the schedule clause in case of load balancing issues - Avoid nested parallelism - Consider tasking instead
+- \#pragma omp for schedule(runtime) is better than \#pragma omp for schedule(dynamic)
+
+**** When do things get harder?
+- Memory access "just happens"
+- NUMA and False sharing. Nothing to do with OpenMP
+
+*** False sharing
+
+- A corner case, but it might affect
+- Happens when multiple threads modify the same cache line at the same time
+- False sharing happens at LLC
+*** NUMA
+- Non-unifrom memory access
+- Tuning for NUMA is about keeping threads and their data close
+- In OpenMP, a thread maybe moved to the data
+- Moving the threads and not data
+- First touch data placement policy allocates the data page in the memory closest to the thread accesssing this page for the first time.
+- numactl tool
+- Do not use calloc for global memory allocation, instead use malloc
+- In OpenMP, places are used to define where threads may run
+- OMP_PLACES - defines where threads may run. OMP_PROC_BIND - defines how threads map onto the OpenMP places. OMP_DISPLAY_ENV=true
+- Change these env variables to check how sensitive is my code
+- lscpu
+- Data and thread placement matter a lot!
+
+*** SIMD
+- Single Instruction Multiple Data
+- Special hardware instructions to operate on multiple data points at once
+- Instructions work on vector registers
+- Vectorization works best on aligned data structures
+
+**** Approaches to Vectorization
+- Compiler -> auto-vectorization
+- Explicit vector programming (e.g., with OpenMP)
+- Inline Assembly
+- Assembler Code
+
+**** Data dependencies
+
+**** Loop dependencies
+- Vectorization is possible
+
+**** The SIMD construct
+- The SIMD construct enables the execution of multiple iterations of the associated loops concurrently by means of SIMD instructions
+
+ #+BEGIN_SRC
+    #pragma omp for simd [clause(s)]
+    for loops
+ #+END_SRC
+
+- The safelen clause allows to specity a distance of loop iterations where no dependencies occur
+- Loop iterations are first distributed across threads, then each chunk is handled as a SIMD loop
+- Function calls in SIMD-loops can lead to bottlenecks, because functions need to be executed serially
+
+
+ #+BEGIN_SRC
+    #pragma omp declare simd [clause(s)]
+    function definition/declaration
+ #+END_SRC
+ - Vectorized is better.
+
+**** The taskloop construct
+- Task generating constrcut: decompose a loop into chunks
+ #+BEGIN_SRC
+    #pragma omp taskloop [clause(s), clause(),..]
+ #+END_SRC
+
+**** The taskloop collapse(n)
+- Task generating construct: decompose a loop into chunks
+ #+BEGIN_SRC
+    #pragma omp taskloop collapse(n)
+ #+END_SRC
+- If nested loops are not dependent on the othersm then the loops are collapsed into one larger iteration space
+- Then divided according to the grainsize and num_tasks
+- n is the number of collapse, number of for loops.
+
+**** Task Affinity
+
+**** Roof line model
+- https://en.wikipedia.org/wiki/Roofline_model
